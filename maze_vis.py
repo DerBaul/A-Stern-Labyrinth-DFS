@@ -1,4 +1,4 @@
-from gol_model import MarkerAgent, MazeAgent, mesa, MazeModel
+from maze_model import MarkerAgent, MazeAgent, mesa, MazeModel
 
 
 def agent_portrayal(agent):
@@ -23,10 +23,10 @@ def agent_portrayal(agent):
         portrayal["Color"] = "yellow"
     return portrayal
 
-grid = mesa.visualization.CanvasGrid(agent_portrayal, 21, 21, 1000, 1000)
+grid = mesa.visualization.CanvasGrid(agent_portrayal, 15, 15, 1000, 1000)
 server = mesa.visualization.ModularServer(MazeModel,
                        [grid],
                        "Maze Model",
-                       {"prob":0.4, "width":21, "height":21})
+                       {"prob":0.4, "width":15, "height":15})
 server.port = 8521 # The default
 server.launch()

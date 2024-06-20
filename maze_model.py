@@ -9,11 +9,10 @@
 from turtle import st
 import mesa
 import mesa.agent
-from networkx import neighbors
 import numpy as np
 import random
-import heapq
-
+import networkx as nx
+import matplotlib.pyplot as plt
 
 #Hilfs funktionen
 
@@ -46,49 +45,6 @@ def create_maze(width, height):
     
     return maze
 
-def heuristic(a, b):
-    return abs(a[0] - b[0]) + abs(a[1] - b[1])
-
-def a_star_search(maze, start, goal):
-    height = len(maze)
-    width = len(maze[0])
-    
-    open_set = []
-    heapq.heappush(open_set, (0, start))
-    
-    came_from = {}
-    g_score = {start: 0}
-    f_score = {start: heuristic(start, goal)}
-    
-    while open_set:
-        _, current = heapq.heappop(open_set)
-        
-        if current == goal:
-            reconstruct_path(came_from, current, maze)
-            return True
-        
-        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-            neighbor = (current[0] + dx, current[1] + dy)
-            if 0 <= neighbor[0] < height and 0 <= neighbor[1] < width:
-                if maze[neighbor[0]][neighbor[1]] == 1:
-                    continue
-                
-                tentative_g_score = g_score[current] + 1
-                
-                if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
-                    came_from[neighbor] = current
-                    g_score[neighbor] = tentative_g_score
-                    f_score[neighbor] = tentative_g_score + heuristic(neighbor, goal)
-                    heapq.heappush(open_set, (f_score[neighbor], neighbor))
-    
-    return False
-
-def reconstruct_path(came_from, current, maze):
-    while current in came_from:
-        current = came_from[current]
-        if maze[current[0]][current[1]] != 0:  # To avoid overwriting the start point
-            maze[current[0]][current[1]] = 4
-
 def print_maze(maze):
     for row in maze:
         print(''.join(str(cell) for cell in row))
@@ -113,7 +69,7 @@ class MarkerAgent(mesa.Agent):
         super().__init__(id, model)
         self.state = state
         
-
+        
 class MazeAgent(mesa.Agent):
     def __init__(self, model, id, state=0):
         super().__init__(id, model)
@@ -143,13 +99,18 @@ class MazeAgent(mesa.Agent):
         self.model.grid.place_agent(marker_agent, self.pos)
         self.model.grid.move_agent(self, new_position)
         
+    def manhatan_distance(selfe):
+        pass
+
+    def a_star(self):
+        pass
+
 
     def step(self):
         self.find_end()
 
     def advance(self):
         self.state = self.next_state
-
         
 class MazeModel(mesa.Model):
     def __init__(self, prob, width, height):
@@ -165,6 +126,7 @@ class MazeModel(mesa.Model):
         self.maze = self.maze_map
         self.maze[1,1] = 0
         self.maze[width-2, height-2] = 0
+        self.maze_graph = nx.Graph()
 
         #Build maze on canvas
         for x in range(self.width):
@@ -187,10 +149,40 @@ class MazeModel(mesa.Model):
         a = MazeAgent(self, self.agent_counter, 0)
         self.scheduler.add(a)
         self.grid.place_agent(a, (1,1))
+
+        #makes maze_map to maze_graph
+        self.maze_graph = self.maze_to_graph(self.maze_map)
+        print(self.maze_graph)
         
+
+    def maze_to_graph(self, maze):
+        graph = nx.Graph()
+        width, height = maze.shape
+
+        for x in range(width):
+            for y in range(height):
+                if maze[x, y] == 0:  # Only consider paths
+                    pos = (x, y)
+                    graph.add_node(pos)
+                    # Check the 4 possible neighbors (up, down, left, right)
+                    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        neighbor = (x + dx, y + dy)
+                        if 0 <= neighbor[0] < width and 0 <= neighbor[1] < height:
+                            if maze[neighbor[0], neighbor[1]] == 0:  # Only connect paths
+                                graph.add_edge(pos, neighbor)
+        
+        return graph
+    
     def step(self):
         self.scheduler.step()
-        
+       
+        pos = {(x, y): (x, -y) for x, y in self.maze_graph.nodes()}
+
+        plt.figure(figsize=(8, 8))
+        nx.draw(self.maze_graph, pos, with_labels=True, node_size=700, node_color="lightblue", font_size=10, font_weight="bold", edge_color='gray')
+        plt.gca().invert_yaxis()  # Invert y axis to match the grid layout
+        plt.title("Maze Graph")
+        plt.show()
 
 cv = MazeModel(0.4, 5, 5)
 cv.step()
