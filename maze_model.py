@@ -105,21 +105,23 @@ class MazeAgent(mesa.Agent):
             agents_on_field = self.model.grid.get_cell_list_contents([neighbor])
             if agents_on_field:
                 if isinstance(agents_on_field[0], MazeAgent):  # Hier das erste Element überprüfen. Eigentlich nicht nötig, aber zur sicherheit drinnen.
-                    if self.money<=5:
+                    if self.money<=5: #Nur für reiche Agenten sind die Nachbarn interessant. 
                         continue
-                    elif agents_on_field[0].check_money() < 3:
+                    elif agents_on_field[0].check_money() < 3: #ab wann ist ein Agent arm
                         poor_neighbors.append(agents_on_field[0])
                 else:
                     possible_steps.append(neighbor)
             else:
                 possible_steps.append(neighbor)
+            
+        #Hat der Agent genug arme Nachbaren damit er teilen muss.
         if len(poor_neighbors) >= 3:
             lucky_neighbor = random.choice(poor_neighbors)
             self.money -= 1
             lucky_neighbor.add_money(1) 
         
         #Es wird von den Erlaubten zügen zufällig einer gewält.
-        if not possible_steps:
+        if not possible_steps: #wenn der Agent von anderen umzingelt ist bleibt er auf seinem Feld stehen.
             new_position = self.pos
         else: new_position = self.random.choice(possible_steps) 
         #marker_agent = MarkerAgent(self.model, self.model.next_id(), 1)
