@@ -72,37 +72,70 @@ class MarkerAgent(mesa.Agent):
         
         
 class MazeAgent(mesa.Agent):
-    def __init__(self, model, id, state=0):
+    def __init__(self, model, id, state=0, money = 0): #state: 0 = Labyrinth lösen, 1 = random moves geld abgeben, 2 = tot
         super().__init__(id, model)
         self.state = state
-        self.next_state = state
+        self.money = money
+        self.best_way = list()
+        self.step_count = 0
+        self.steps_poor = 0
+        
+    def steps_poor_checker(self):
+        if self.money > 0:  #was zählt als kein geld haben
+            self.steps_poor = 0
 
-    def find_end(self):
+        elif self.steps_poor >= 5: #wie lange darf man kein geld haben
+            self.state = 2
+            self.money = 200
+        else:
+            if self.money == 0:
+                self.steps_poor += 1
+        
+        
+    def go_money(self):
         neighbors = self.model.grid.get_neighborhood(
             self.pos, moore=False, include_center=False
         )
 
-        possible_steps = []
-        for neighbor in neighbors:
-            inhalt = self.model.grid.get_cell_list_contents([neighbor])
-            if inhalt:
-                if isinstance(inhalt[0], WallAgent):  # Hier das erste Element überprüfen. Eigentlich nicht nötig, aber zur sicherheit drinnen.
-                    continue
+        #print(neighbors)
 
+        possible_steps = []
+        poor_neighbors = []
+        for neighbor in neighbors:
+            agents_on_field = self.model.grid.get_cell_list_contents([neighbor])
+            if agents_on_field:
+                if isinstance(agents_on_field[0], MazeAgent):  # Hier das erste Element überprüfen. Eigentlich nicht nötig, aber zur sicherheit drinnen.
+                    if self.money<=5:
+                        continue
+                    elif agents_on_field[0].check_money() < 3:
+                        poor_neighbors.append(agents_on_field[0])
                 else:
                     possible_steps.append(neighbor)
             else:
                 possible_steps.append(neighbor)
+        if len(poor_neighbors) >= 3:
+            lucky_neighbor = random.choice(poor_neighbors)
+            self.money -= 1
+            lucky_neighbor.add_money(1) 
         
         #Es wird von den Erlaubten zügen zufällig einer gewält.
-        new_position = self.random.choice(possible_steps) 
-        marker_agent = MarkerAgent(self.model, self.model.next_id(), 1)
-        self.model.grid.place_agent(marker_agent, self.pos)
+        if not possible_steps:
+            new_position = self.pos
+        else: new_position = self.random.choice(possible_steps) 
+        #marker_agent = MarkerAgent(self.model, self.model.next_id(), 1)
+        #self.model.grid.place_agent(marker_agent, self.pos)
         self.model.grid.move_agent(self, new_position)
+
+    def check_money(self):
+        return self.money
+    
+    def add_money(self, i):
+        self.money += i
         
     def make_move(self, move):
         marker_agent = MarkerAgent(self.model, self.model.next_id(), 1)
         self.model.grid.place_agent(marker_agent, self.pos)
+        self.model.add_marker_to_list(marker_agent)
         self.model.grid.move_agent(self, move)
 
     def manhattan_distance(self, a, b):
@@ -143,13 +176,24 @@ class MazeAgent(mesa.Agent):
 
 
     def step(self):
-        nex_move = self.a_star(self.pos, self.model.get_end())
-        print(self.a_star(self.pos, self.model.get_end()))
-        self.make_move(nex_move[1])
-        #self.find_end()
+        if self.state == 2:
+            pass
+        elif self.state == 0: 
+            if not self.best_way:
+                self.best_way = self.a_star(self.pos, self.model.get_end())
+                print(self.best_way)
 
-    def advance(self):
-        self.state = self.next_state
+            if self.step_count < len(self.best_way):
+                print(self.step_count)
+                self.make_move(self.best_way[self.step_count])
+                self.step_count+=1
+            else:
+                self.model.get_path_length(len(self.best_way))
+                self.state = 1
+        elif self.state == 1:
+            print("I try going")
+            self.go_money()
+            self.steps_poor_checker()
         
 class MazeModel(mesa.Model):
     def __init__(self, prob, width, height):
@@ -169,12 +213,15 @@ class MazeModel(mesa.Model):
         self.agent_at_goal = 0
         self.all_wall_agents = list()
         self.all_marker_agents = list()
-
+        self.all_maze_agents = list()
+        self.best_path_lenght = 0
 
         #Place Maze_Agent
-        self.Maze_Agent = MazeAgent(self, self.agent_counter, 0)
+        self.Maze_Agent = MazeAgent(self, self.agent_counter, 0, 10)
         self.scheduler.add(self.Maze_Agent)
         self.grid.place_agent(self.Maze_Agent, (1,1))
+        self.all_maze_agents.append(self.Maze_Agent)
+        print("Das ist die Länge: " + str(len(self.all_maze_agents)))     
         self.agent_counter += 1
 
         #Build maze on canvas
@@ -240,20 +287,49 @@ class MazeModel(mesa.Model):
     def delet_walls(self):
         for agent in self.all_wall_agents:
             self.remove_agent(agent)
+        self.all_wall_agents = []
     
     def delet_marker(self):
         for agent in self.all_marker_agents:
             self.remove_agent(agent)
 
-    def step(self):
-        self.check_agent_goal()
-        if self.agent_at_goal:
-            self.delet_marker()
-            self.delet_walls()
-        self.scheduler.step()
+    def add_marker_to_list(self, marker):
+        self.all_marker_agents.append(marker)
 
     def get_end(self):
         return (self.width-2, self.height-2)
+    
+    def get_path_length(self, l):
+        self.best_path_lenght = l
+
+    def gen_r_p_agents(self):
+        for _ in range(self.best_path_lenght-1):
+            a = MazeAgent(self, self.agent_counter, 1, 10)
+            self.scheduler.add(a)
+            spawn_point = (random.randint(1, self.width-2), random.randint(1, self.height-2))
+            self.grid.place_agent(a, spawn_point)
+            self.agent_counter += 1
+            self.all_maze_agents.append(a)
+        for _ in range(self.best_path_lenght):
+            a = MazeAgent(self, self.agent_counter, 1, 0)
+            self.scheduler.add(a)
+            spawn_point = (random.randint(1, self.width-2), random.randint(1, self.height-2))
+            self.grid.place_agent(a, spawn_point)
+            self.agent_counter += 1
+            self.all_maze_agents.append(a)
+
+    def step(self):
+        if self.all_wall_agents: #den check nach nen marker agents gibt es um nach löschen der agents sich den Aufruf der Funktion zu sparen.
+            self.check_agent_goal()
+        if self.agent_at_goal and self.all_wall_agents:
+            self.delet_marker()
+            self.delet_walls()
+        elif not self.all_wall_agents and len(self.all_maze_agents)==1:
+            print("I Am here")
+            self.gen_r_p_agents()
+        self.scheduler.step()
+
+    
 cv = MazeModel(0.4, 5, 5)
 cv.step()
 

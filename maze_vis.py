@@ -20,7 +20,14 @@ def agent_portrayal(agent):
     elif agent.state == 3:
         portrayal["Color"] = "blue"
     if isinstance (agent, MazeAgent):
-        portrayal["Color"] = "yellow"
+        if agent.state == 2:
+            portrayal["Color"] = "black"
+        elif agent.money > 5:
+            portrayal["Color"] = "yellow"
+        elif agent.money < 3:
+            portrayal["Color"] = "gray"
+        else:
+            portrayal["Color"] = "orange"
     return portrayal
 
 grid = mesa.visualization.CanvasGrid(agent_portrayal, 15, 15, 1000, 1000)
