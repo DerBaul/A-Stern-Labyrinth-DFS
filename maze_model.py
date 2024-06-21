@@ -119,41 +119,52 @@ class MazeModel(mesa.Model):
         super().__init__()
         self.grid = mesa.space.MultiGrid(width, height, True)
         self.scheduler = mesa.time.SimultaneousActivation(self)
-        self.wall_counter = 0
-        self.marker_counter = 0
+        self.agent_counter = 0
+        self.agent_counter = 0
         self.agent_counter = 0
         self.maze_map = np.array(create_maze(width, height))
         self.maze = self.maze_map
         self.maze[1,1] = 0
         self.maze[width-2, height-2] = 0
         self.maze_graph = nx.Graph()
+        self.agent_at_goal = 0
+
+
+        #Place Maze_Agent
+        a = MazeAgent(self, self.agent_counter, 0)
+        self.scheduler.add(a)
+        self.grid.place_agent(a, (1,1))
+        self.agent_counter += 1
 
         #Build maze on canvas
         for x in range(self.width):
             for y in range(self.height):
                 state = self.maze[x,y]
                 if state:
-                    a = WallAgent(self, self.wall_counter, state)
+                    a = WallAgent(self, self.agent_counter, state)
                     #self.scheduler.add(a)
                     #add to grid
                     self.grid.place_agent(a, (x,y))
-                    self.wall_counter += 1
+                    self.agent_counter += 1
         #Place Marker for start and end
-        m = MarkerAgent(self, self.marker_counter, 0)
+        m = MarkerAgent(self, self.agent_counter, 0)
         self.grid.place_agent(m, (1,1))
-        self.marker_counter += 1
-        m = MarkerAgent(self, self.marker_counter, 0)
+        self.agent_counter += 1
+        m = MarkerAgent(self, self.agent_counter, 0)
         self.grid.place_agent(m, (width-2, height-2))
-        
-        #Place Maze_Agent
-        a = MazeAgent(self, self.agent_counter, 0)
-        self.scheduler.add(a)
-        self.grid.place_agent(a, (1,1))
+        self.agent_counter += 1
 
         #makes maze_map to maze_graph
         self.maze_graph = self.maze_to_graph(self.maze_map)
         print(self.maze_graph)
         
+        pos = {(x, y): (x, -y) for x, y in self.maze_graph.nodes()}
+
+        plt.figure(figsize=(8, 8))
+        nx.draw(self.maze_graph, pos, with_labels=True, node_size=700, node_color="lightblue", font_size=10, font_weight="bold", edge_color='gray')
+        plt.gca().invert_yaxis()  # Invert y axis to match the grid layout
+        plt.title("Maze Graph")
+        plt.show()
 
     def maze_to_graph(self, maze):
         graph = nx.Graph()
@@ -173,16 +184,12 @@ class MazeModel(mesa.Model):
         
         return graph
     
+    def check_agent_goal(self):
+        if ((self.width-2, self.height-2) == agent):
+            pass
+    
     def step(self):
         self.scheduler.step()
-       
-        pos = {(x, y): (x, -y) for x, y in self.maze_graph.nodes()}
-
-        plt.figure(figsize=(8, 8))
-        nx.draw(self.maze_graph, pos, with_labels=True, node_size=700, node_color="lightblue", font_size=10, font_weight="bold", edge_color='gray')
-        plt.gca().invert_yaxis()  # Invert y axis to match the grid layout
-        plt.title("Maze Graph")
-        plt.show()
 
 cv = MazeModel(0.4, 5, 5)
 cv.step()
