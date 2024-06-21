@@ -13,6 +13,7 @@ import numpy as np
 import random
 import networkx as nx
 import matplotlib.pyplot as plt
+import math
 
 #Hilfs funktionen
 
@@ -99,14 +100,15 @@ class MazeAgent(mesa.Agent):
         self.model.grid.place_agent(marker_agent, self.pos)
         self.model.grid.move_agent(self, new_position)
         
-    def manhatan_distance(selfe):
-        pass
+    def manhattan_distance(self, a, b):
+        return math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
 
     def a_star(self):
         pass
 
 
     def step(self):
+        
         self.find_end()
 
     def advance(self):
@@ -128,12 +130,14 @@ class MazeModel(mesa.Model):
         self.maze[width-2, height-2] = 0
         self.maze_graph = nx.Graph()
         self.agent_at_goal = 0
+        self.all_wall_agents = list()
+        self.all_marker_agents = list()
 
 
         #Place Maze_Agent
-        a = MazeAgent(self, self.agent_counter, 0)
-        self.scheduler.add(a)
-        self.grid.place_agent(a, (1,1))
+        self.Maze_Agent = MazeAgent(self, self.agent_counter, 0)
+        self.scheduler.add(self.Maze_Agent)
+        self.grid.place_agent(self.Maze_Agent, (1,1))
         self.agent_counter += 1
 
         #Build maze on canvas
@@ -144,13 +148,17 @@ class MazeModel(mesa.Model):
                     a = WallAgent(self, self.agent_counter, state)
                     #self.scheduler.add(a)
                     #add to grid
+                    self.all_wall_agents.append(a)
                     self.grid.place_agent(a, (x,y))
                     self.agent_counter += 1
+
         #Place Marker for start and end
         m = MarkerAgent(self, self.agent_counter, 0)
+        self.all_marker_agents.append(m)
         self.grid.place_agent(m, (1,1))
         self.agent_counter += 1
         m = MarkerAgent(self, self.agent_counter, 0)
+        self.all_marker_agents.append(m)
         self.grid.place_agent(m, (width-2, height-2))
         self.agent_counter += 1
 
@@ -185,10 +193,26 @@ class MazeModel(mesa.Model):
         return graph
     
     def check_agent_goal(self):
-        if ((self.width-2, self.height-2) == agent):
-            pass
+        print(self.Maze_Agent.pos)
+        if ((self.width-2, self.height-2) == self.Maze_Agent.pos):
+            self.agent_at_goal = 1
     
+    def remove_agent(self, agent):
+        self.grid.remove_agent(agent)
+
+    def delet_walls(self):
+        for agent in self.all_wall_agents:
+            self.remove_agent(agent)
+    
+    def delet_marker(self):
+        for agent in self.all_marker_agents:
+            self.remove_agent(agent)
+
     def step(self):
+        self.check_agent_goal()
+        if self.agent_at_goal:
+            self.delet_marker()
+            self.delet_walls()
         self.scheduler.step()
 
 cv = MazeModel(0.4, 5, 5)
