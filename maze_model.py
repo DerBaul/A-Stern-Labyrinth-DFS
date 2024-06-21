@@ -103,12 +103,42 @@ class MazeAgent(mesa.Agent):
     def manhattan_distance(self, a, b):
         return math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
 
-    def a_star(self):
-        pass
+    def a_star(self, start, end):
+        G = self.model.maze_to_graph()
+        open_list = set([start])
+        closed_list = set([])
+        g = {start: 0}
+        parents = {start: start}
+
+        while len(open_list) > 0:
+            n = None
+            for v in open_list:
+                if n == None or g[v] + self.manhattan_distance(v, end) < g[n] + self.manhattan_distance(n, end):
+                    n = v
+            if n == end or G[n] == end:
+                path = []
+                while parents[n] != n:
+                    path.append(n)
+                    n = parents[n]
+                path.append(start)
+                path.reverse()
+                return path
+            open_list.remove(n)
+            closed_list.add(n)
+            for (nx, ny) in G.neighbors(n):
+                if (nx, ny) in closed_list:
+                    continue
+                candidate_g = g[n] + 1
+                if (nx, ny) not in open_list or candidate_g < g[(nx, ny)]:
+                    g[(nx, ny)] = candidate_g
+                    parents[(nx, ny)] = n
+                    if (nx, ny) not in open_list:
+                        open_list.add((nx, ny))
+        return None
 
 
     def step(self):
-        
+        print(self.a_star(self.pos, self.model.get_end()))
         self.find_end()
 
     def advance(self):
@@ -163,7 +193,7 @@ class MazeModel(mesa.Model):
         self.agent_counter += 1
 
         #makes maze_map to maze_graph
-        self.maze_graph = self.maze_to_graph(self.maze_map)
+        self.maze_graph = self.maze_to_graph()
         print(self.maze_graph)
         
         pos = {(x, y): (x, -y) for x, y in self.maze_graph.nodes()}
@@ -174,20 +204,20 @@ class MazeModel(mesa.Model):
         plt.title("Maze Graph")
         plt.show()
 
-    def maze_to_graph(self, maze):
+    def maze_to_graph(self):
         graph = nx.Graph()
-        width, height = maze.shape
+        width, height = self.maze_map.shape
 
         for x in range(width):
             for y in range(height):
-                if maze[x, y] == 0:  # Only consider paths
+                if self.maze_map[x, y] == 0:  # Only consider paths
                     pos = (x, y)
                     graph.add_node(pos)
                     # Check the 4 possible neighbors (up, down, left, right)
                     for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                         neighbor = (x + dx, y + dy)
                         if 0 <= neighbor[0] < width and 0 <= neighbor[1] < height:
-                            if maze[neighbor[0], neighbor[1]] == 0:  # Only connect paths
+                            if self.maze_map[neighbor[0], neighbor[1]] == 0:  # Only connect paths
                                 graph.add_edge(pos, neighbor)
         
         return graph
@@ -215,6 +245,8 @@ class MazeModel(mesa.Model):
             self.delet_walls()
         self.scheduler.step()
 
+    def get_end(self):
+        return (self.width-2, self.height-2)
 cv = MazeModel(0.4, 5, 5)
 cv.step()
 
