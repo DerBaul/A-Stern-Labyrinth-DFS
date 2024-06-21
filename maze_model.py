@@ -100,6 +100,11 @@ class MazeAgent(mesa.Agent):
         self.model.grid.place_agent(marker_agent, self.pos)
         self.model.grid.move_agent(self, new_position)
         
+    def make_move(self, move):
+        marker_agent = MarkerAgent(self.model, self.model.next_id(), 1)
+        self.model.grid.place_agent(marker_agent, self.pos)
+        self.model.grid.move_agent(self, move)
+
     def manhattan_distance(self, a, b):
         return math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
 
@@ -138,8 +143,10 @@ class MazeAgent(mesa.Agent):
 
 
     def step(self):
+        nex_move = self.a_star(self.pos, self.model.get_end())
         print(self.a_star(self.pos, self.model.get_end()))
-        self.find_end()
+        self.make_move(nex_move[1])
+        #self.find_end()
 
     def advance(self):
         self.state = self.next_state
