@@ -177,6 +177,42 @@ class MazeAgent(mesa.Agent):
                         open_list.add((nx, ny))
         return None
 
+    def draw_path(self, path, end):
+    # Erstellen Sie einen neuen Graphen für den Pfad
+        path_graph = nx.Graph()
+        
+        for i in range(len(path) ):
+            node = path[i]
+            cost = 0
+            #distance = self.manhattan_distance(node, end)
+            distance = len(path) - i - 1
+            #distance = round(distance, 2)
+            if path[i - 1][0] == path[i][0]:
+                cost =(path[i - 1][0] + path[i][0]) + self.manhattan_distance(node, end)
+                cost = round(cost, 2)
+            if path[i - 1][1] == path[i][1]:
+                cost = (path[i - 1][1] + path[i][1]) + self.manhattan_distance(node, end)
+                cost = round(cost, 2)
+            path_graph.add_node(node, cost=cost, distance=distance)
+            
+            if i < len(path) - 1:
+                path_graph.add_edge(path[i], path[i + 1])
+
+        pos = {(x, y): (x, -y) for (x, y) in path_graph.nodes()}
+
+        plt.figure(figsize=(8, 8))
+        nx.draw(path_graph, pos, with_labels=False, node_size=700, node_color="lightblue", font_size=10, font_weight="bold", edge_color='gray')
+        
+        # Zeichnen der Knotenlabels mit Kosten
+        node_labels = nx.get_node_attributes(path_graph, 'cost')
+        distance_labels = nx.get_node_attributes(path_graph, 'distance')
+        formatted_labels = {node: f"C={cost}\nL={distance}" for node, cost, distance in zip(node_labels.keys(), node_labels.values(), distance_labels.values())}
+        nx.draw_networkx_labels(path_graph, pos, labels=formatted_labels, font_size=10)
+        
+        plt.gca().invert_yaxis()  # Invert y axis to match the grid layout
+        plt.title("Path")
+        plt.show()
+
     def tell_data_to_model(self):
         money = self.money
         if money == 200:
@@ -189,6 +225,7 @@ class MazeAgent(mesa.Agent):
         elif self.state == 0: 
             if not self.best_way:
                 self.best_way = self.a_star(self.pos, self.model.get_end())
+                self.draw_path(self.best_way, self.model.get_end())
                 print(self.best_way)
 
             if self.step_count < len(self.best_way):
