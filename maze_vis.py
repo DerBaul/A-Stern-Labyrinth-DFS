@@ -23,7 +23,7 @@ def agent_portrayal(agent):
         if agent.state == 2:
             portrayal["Color"] = "black"
         elif agent.money > 5:
-            portrayal["Color"] = "yellow"
+            portrayal["Color"] = "blue"
         elif agent.money < 3:
             portrayal["Color"] = "gray"
         else:
@@ -34,6 +34,6 @@ grid = mesa.visualization.CanvasGrid(agent_portrayal, 15, 15, 1000, 1000)
 server = mesa.visualization.ModularServer(MazeModel,
                        [grid],
                        "Maze Model",
-                       {"prob":0.4, "width":15, "height":15})
+                       {"width":15, "height":15})
 server.port = 8521 # The default
 server.launch()

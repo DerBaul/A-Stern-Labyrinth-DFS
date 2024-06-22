@@ -15,6 +15,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import math
 
+
 #Hilfs funktionen
 
 def create_maze(width, height):
@@ -85,8 +86,8 @@ class MazeAgent(mesa.Agent):
             self.steps_poor = 0
 
         elif self.steps_poor >= 5: #wie lange darf man kein geld haben
-            self.state = 2
-            self.money = 200
+            self.state = 2      #der agent ruft jetzt nichtmehr go_money auf.
+            self.money = 200    #durch das viele geld teilen keine reichen Agenten mit dem toten.
         else:
             if self.money == 0:
                 self.steps_poor += 1
@@ -176,6 +177,11 @@ class MazeAgent(mesa.Agent):
                         open_list.add((nx, ny))
         return None
 
+    def tell_data_to_model(self):
+        money = self.money
+        if money == 200:
+            money = 0
+        return [money, self.state]
 
     def step(self):
         if self.state == 2:
@@ -198,7 +204,7 @@ class MazeAgent(mesa.Agent):
             self.steps_poor_checker()
         
 class MazeModel(mesa.Model):
-    def __init__(self, prob, width, height):
+    def __init__(self, width, height):
         self.width = width
         self.height = height
         super().__init__()
@@ -217,6 +223,7 @@ class MazeModel(mesa.Model):
         self.all_marker_agents = list()
         self.all_maze_agents = list()
         self.best_path_lenght = 0
+        self.money_step_count = 0
 
         #Place Maze_Agent
         self.Maze_Agent = MazeAgent(self, self.agent_counter, 0, 10)
@@ -320,20 +327,72 @@ class MazeModel(mesa.Model):
             self.agent_counter += 1
             self.all_maze_agents.append(a)
 
+    def get_data_from_agents(self):
+        agents_data = []
+        for agent in self.all_maze_agents:
+            agents_data.append(agent.tell_data_to_model())
+            print(agent.tell_data_to_model())
+        print(agents_data)
+        return agents_data
+
+    def show_agent_data(self, data):
+        counter = {}
+        for item in data:
+            tuple_item = tuple(item)
+            if tuple_item in counter:
+                counter[tuple_item] += 1
+            else:
+                counter[tuple_item] = 1
+
+        #https://stackoverflow.com/questions/6618515/sorting-list-according-to-corresponding-values-from-a-parallel-list
+        #für das Sortieren der Daten habe ich mich an den Lösungsvorschlägen hier orienteirt.
+        # Bereite die Daten für das Histogramm vor
+        combined = list(counter.items())
+
+        # Sortiere die Liste von Tupeln anhand vom ersten Element von labels
+        #Lambda ist eine funktion die nur inline existiert. Hier nimmt sie von jedem Tupel x das element x[0]
+        sorted_combined = sorted(combined, key=lambda x: x[0])
+
+        # Teilt sorted_combined auf. Der Stern teilt sorted_combined in die Einzelen Tupel auf. Zip bekommt also jedes Tupel als seperates Argument.
+        sorted_labels, sorted_values = zip(*sorted_combined)
+        
+        # x_vals sind die einzelen gruppen
+        # y_vales sind ist wie viele agenten zu dieser gruppe gehören
+        x_vals = [f'{x}' for x, _ in sorted_labels]
+        y_vals = list(sorted_values)
+
+        # Erstelle das Histogramm
+        plt.figure(figsize=(10, 6))
+        plt.bar(x_vals, y_vals)
+        plt.xlabel('Münzen')
+        plt.ylabel('Zahl der Agenten')
+        plt.title('Verteilung der Münzen')
+        plt.tight_layout()
+        plt.show()
+
+
     def step(self):
         if self.all_wall_agents: #den check nach nen marker agents gibt es um nach löschen der agents sich den Aufruf der Funktion zu sparen.
             self.check_agent_goal()
-        if self.agent_at_goal and self.all_wall_agents:
+        if self.agent_at_goal and self.all_wall_agents:  #ist der Agent am Ziel und exisitieren noch Wände
             self.delet_marker()
             self.delet_walls()
-        elif not self.all_wall_agents and len(self.all_maze_agents)==1:
-            print("I Am here")
+        elif not self.all_wall_agents and len(self.all_maze_agents)==1: #Sind alle Wände entfernt und es gibt aktuell nur einen maze_agenten
             self.gen_r_p_agents()
-        self.scheduler.step()
+        elif len(self.all_maze_agents) > 1:
+            self.money_step_count += 1
+
+        if self.money_step_count <= 20:
+            self.scheduler.step()
+        elif self.money_step_count == 21:
+           self.show_agent_data(self.get_data_from_agents()) 
+           self.running = False
+        else:
+            print(str(self.money_step_count) + " Steps sind vorbei")
 
     
-cv = MazeModel(0.4, 5, 5)
-cv.step()
+#cv = MazeModel(0.4, 5, 5)
+#cv.step()
 
 
 #Hausaufgabe
