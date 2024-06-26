@@ -15,71 +15,28 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import math
 
-
-#Hilfs funktionen
-
-def create_maze(width, height):
-    # Initialize the grid with walls
-    maze = [[1 for _ in range(width)] for _ in range(height)]
-    
-    # Directions for moving in the grid (right, left, down, up)
-    directions = [(0, 2), (0, -2), (2, 0), (-2, 0)]
-    
-    def is_valid(x, y):
-        return 0 < x < height-1 and 0 < y < width-1
-    
-    def carve_path(x, y):
-        maze[x][y] = 0  # Mark the cell as part of the path
-        
-        random.shuffle(directions)
-        
-        for dx, dy in directions:
-            nx, ny = x + dx, y + dy
-            if is_valid(nx, ny) and maze[nx][ny] == 1:
-                maze[nx-dx//2][ny-dy//2] = 0  # Carve a passage
-                carve_path(nx, ny)
-    
-    # Start carving the maze from (1, 1)
-    carve_path(1, 1)
-    
-    # Make sure the starting point is open
-    maze[1][1] = 0  # Start point
-    
-    return maze
-
-def print_maze(maze):
-    for row in maze:
-        print(''.join(str(cell) for cell in row))
-
-def place_stuff(start, obj):
-    place_life_at = list()
-    for x in range(len(obj[0])):
-        for y in range(len(obj) ):
-            if obj[y][x]:
-                place_life_at.append((x + start[0], y + start[1]))
-    return place_life_at
-
+#Der WallAgent markiert Felder die nicht begehbar sind.
 class WallAgent(mesa.Agent):
     def __init__(self, model, id, state=1):
         super().__init__(id, model)
         self.state = state
-    
-    
 
+#Markiert Start, Ende, besuchte Felder
 class MarkerAgent(mesa.Agent):
     def __init__(self, model, id, state=1):
         super().__init__(id, model)
         self.state = state
         
-        
+
+#Der Haupt Agent. 
 class MazeAgent(mesa.Agent):
     def __init__(self, model, id, state=0, money = 0): #state: 0 = Labyrinth lösen, 1 = random moves geld abgeben, 2 = tot
         super().__init__(id, model)
         self.state = state
         self.money = money
         self.best_way = list()
-        self.step_count = 0
-        self.steps_poor = 0
+        self.step_count = 0 #Alle Steps
+        self.steps_poor = 0 #Wie lange in Folge der Agent money == 0 hat
         
     def steps_poor_checker(self):
         if self.money > 0:  #was zählt als kein geld haben
@@ -92,7 +49,7 @@ class MazeAgent(mesa.Agent):
             if self.money == 0:
                 self.steps_poor += 1
         
-        
+    #Nach dem lösen des labyrinths geht der Agent in State 1 und teilt geld.
     def go_money(self):
         neighbors = self.model.grid.get_neighborhood(
             self.pos, moore=False, include_center=False
@@ -115,18 +72,18 @@ class MazeAgent(mesa.Agent):
             else:
                 possible_steps.append(neighbor)
             
-        #Hat der Agent genug arme Nachbaren damit er teilen muss.
+        #Hat der Agent genug arme Nachbaren muss er teilen.
+        #Wie viel er abgeben muss ist in menge_geld gespeichert.
         if len(poor_neighbors) >= 3:
             lucky_neighbor = random.choice(poor_neighbors)
-            self.money -= 1
-            lucky_neighbor.add_money(1) 
+            menge_geld = 1
+            self.money -= menge_geld
+            lucky_neighbor.add_money(menge_geld) 
         
         #Es wird von den Erlaubten zügen zufällig einer gewält.
         if not possible_steps: #wenn der Agent von anderen umzingelt ist bleibt er auf seinem Feld stehen.
             new_position = self.pos
         else: new_position = self.random.choice(possible_steps) 
-        #marker_agent = MarkerAgent(self.model, self.model.next_id(), 1)
-        #self.model.grid.place_agent(marker_agent, self.pos)
         self.model.grid.move_agent(self, new_position)
 
     def check_money(self):
@@ -208,8 +165,7 @@ class MazeAgent(mesa.Agent):
         distance_labels = nx.get_node_attributes(path_graph, 'distance')
         formatted_labels = {node: f"C={cost}\nL={distance}" for node, cost, distance in zip(node_labels.keys(), node_labels.values(), distance_labels.values())}
         nx.draw_networkx_labels(path_graph, pos, labels=formatted_labels, font_size=10)
-        
-        plt.gca().invert_yaxis()  # Invert y axis to match the grid layout
+        plt.gca().invert_yaxis()  # Spiegelt Graph das er zum Labyrinth passt
         plt.title("Path")
         plt.show()
 
@@ -220,22 +176,22 @@ class MazeAgent(mesa.Agent):
         return [money, self.state]
 
     def step(self):
-        if self.state == 2:
+        if self.state == 2: #Wenn tot tuh nichts
             pass
         elif self.state == 0: 
-            if not self.best_way:
+            if not self.best_way: #gibt es noch keinen optimalen weg, such einen
                 self.best_way = self.a_star(self.pos, self.model.get_end())
                 self.draw_path(self.best_way, self.model.get_end())
                 print(self.best_way)
 
-            if self.step_count < len(self.best_way):
+            if self.step_count < len(self.best_way): #geh den weg ab
                 print(self.step_count)
                 self.make_move(self.best_way[self.step_count])
                 self.step_count+=1
-            else:
-                self.model.get_path_length(len(self.best_way))
+            else: 
+                self.model.get_path_length(len(self.best_way)) #gibt die länge l ans model
                 self.state = 1
-        elif self.state == 1:
+        elif self.state == 1: #geld tausch modus
             print("I try going")
             self.go_money()
             self.steps_poor_checker()
@@ -248,21 +204,19 @@ class MazeModel(mesa.Model):
         self.grid = mesa.space.MultiGrid(width, height, True)
         self.scheduler = mesa.time.SimultaneousActivation(self)
         self.agent_counter = 0
-        self.agent_counter = 0
-        self.agent_counter = 0
-        self.maze_map = np.array(create_maze(width, height))
+        self.maze_map = np.array(self.create_maze(width, height))
         self.maze = self.maze_map
         self.maze[1,1] = 0
         self.maze[width-2, height-2] = 0
         self.maze_graph = nx.Graph()
-        self.agent_at_goal = 0
+        self.agent_at_goal = 0 #1 wenn der agent am ziel ist
         self.all_wall_agents = list()
         self.all_marker_agents = list()
         self.all_maze_agents = list()
         self.best_path_lenght = 0
-        self.money_step_count = 0
+        self.money_step_count = 0 #steps der Geld simulation
 
-        #Place Maze_Agent
+        #Plaziert Maze_Agent
         self.Maze_Agent = MazeAgent(self, self.agent_counter, 0, 10)
         self.scheduler.add(self.Maze_Agent)
         self.grid.place_agent(self.Maze_Agent, (1,1))
@@ -270,7 +224,7 @@ class MazeModel(mesa.Model):
         print("Das ist die Länge: " + str(len(self.all_maze_agents)))     
         self.agent_counter += 1
 
-        #Build maze on canvas
+        #Baut das maze auf dem canvas
         for x in range(self.width):
             for y in range(self.height):
                 state = self.maze[x,y]
@@ -282,7 +236,7 @@ class MazeModel(mesa.Model):
                     self.grid.place_agent(a, (x,y))
                     self.agent_counter += 1
 
-        #Place Marker for start and end
+        #Start und End markierungen 
         m = MarkerAgent(self, self.agent_counter, 0)
         self.all_marker_agents.append(m)
         self.grid.place_agent(m, (1,1))
@@ -300,28 +254,57 @@ class MazeModel(mesa.Model):
 
         plt.figure(figsize=(8, 8))
         nx.draw(self.maze_graph, pos, with_labels=True, node_size=700, node_color="lightblue", font_size=10, font_weight="bold", edge_color='gray')
-        plt.gca().invert_yaxis()  # Invert y axis to match the grid layout
+        plt.gca().invert_yaxis()  # An der y achse spiegeln
         plt.title("Maze Graph")
         plt.show()
 
+    def create_maze(self, width, height):
+        # überall 1
+        maze = [[1 for _ in range(width)] for _ in range(height)]
+        
+        # mögliche richtungen
+        directions = [(0, 2), (0, -2), (2, 0), (-2, 0)]
+        
+        def is_valid(x, y):
+            return 0 < x < height-1 and 0 < y < width-1
+        
+        def carve_path(x, y):
+            maze[x][y] = 0  # Weg
+            
+            random.shuffle(directions)
+            
+            for dx, dy in directions:
+                nx, ny = x + dx, y + dy
+                if is_valid(nx, ny) and maze[nx][ny] == 1:
+                    maze[nx-dx//2][ny-dy//2] = 0  # macht den weg frei
+                    carve_path(nx, ny)
+        
+        # Startpunkt
+        carve_path(1, 1)
+        
+        # keine wand beim start
+        maze[1][1] = 0  
+    
+        return maze
+    
     def maze_to_graph(self):
         graph = nx.Graph()
         width, height = self.maze_map.shape
 
         for x in range(width):
             for y in range(height):
-                if self.maze_map[x, y] == 0:  # Only consider paths
+                if self.maze_map[x, y] == 0:  # nur freie Felder
                     pos = (x, y)
                     graph.add_node(pos)
-                    # Check the 4 possible neighbors (up, down, left, right)
+                    # mögliche richtungen
                     for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                         neighbor = (x + dx, y + dy)
-                        if 0 <= neighbor[0] < width and 0 <= neighbor[1] < height:
-                            if self.maze_map[neighbor[0], neighbor[1]] == 0:  # Only connect paths
+                        if (0 <= neighbor[0] < width) and (0 <= neighbor[1] < height): #ob "out of index"
+                            if self.maze_map[neighbor[0], neighbor[1]] == 0:  # nur freie Felder
                                 graph.add_edge(pos, neighbor)
         
         return graph
-    
+    #ob der Agent am Ziel ist
     def check_agent_goal(self):
         print(self.Maze_Agent.pos)
         if ((self.width-2, self.height-2) == self.Maze_Agent.pos):
@@ -348,6 +331,7 @@ class MazeModel(mesa.Model):
     def get_path_length(self, l):
         self.best_path_lenght = l
 
+    # Erstellt arme und reiche Agenten
     def gen_r_p_agents(self):
         for _ in range(self.best_path_lenght-1):
             a = MazeAgent(self, self.agent_counter, 1, 10)
@@ -383,6 +367,7 @@ class MazeModel(mesa.Model):
 
         #https://stackoverflow.com/questions/6618515/sorting-list-according-to-corresponding-values-from-a-parallel-list
         #für das Sortieren der Daten habe ich mich an den Lösungsvorschlägen hier orienteirt.
+
         # Bereite die Daten für das Histogramm vor
         combined = list(counter.items())
 
@@ -416,12 +401,12 @@ class MazeModel(mesa.Model):
             self.delet_walls()
         elif not self.all_wall_agents and len(self.all_maze_agents)==1: #Sind alle Wände entfernt und es gibt aktuell nur einen maze_agenten
             self.gen_r_p_agents()
-        elif len(self.all_maze_agents) > 1:
+        elif len(self.all_maze_agents) > 1: #is mehr als ein maze_agent auf dem feld läuft die geld simulation
             self.money_step_count += 1
 
-        if self.money_step_count <= 20:
+        if self.money_step_count <= 20: 
             self.scheduler.step()
-        elif self.money_step_count == 21:
+        elif self.money_step_count == 21: #Stopt die Geld-Simulation nach 20 Steps
            self.show_agent_data(self.get_data_from_agents()) 
            self.running = False
         else:

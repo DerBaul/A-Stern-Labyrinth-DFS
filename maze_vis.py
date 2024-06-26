@@ -30,10 +30,11 @@ def agent_portrayal(agent):
             portrayal["Color"] = "orange"
     return portrayal
 
-grid = mesa.visualization.CanvasGrid(agent_portrayal, 15, 15, 1000, 1000)
+square = 15
+grid = mesa.visualization.CanvasGrid(agent_portrayal, square, square, 1000, 1000)
 server = mesa.visualization.ModularServer(MazeModel,
                        [grid],
                        "Maze Model",
-                       {"width":15, "height":15})
+                       {"width":square, "height":square})
 server.port = 8521 # The default
 server.launch()
