@@ -1,12 +1,3 @@
-#agent
-#lebendig oder tot
-#x,y
-
-#model
-#grid -> singlegrid
-#scheduler: simultanousActivation
-
-from turtle import st
 import mesa
 import mesa.agent
 import numpy as np
@@ -101,6 +92,8 @@ class MazeAgent(mesa.Agent):
     def manhattan_distance(self, a, b):
         return math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
 
+    #https://www.geeksforgeeks.org/a-search-algorithm/
+    #Verwendet um A* zu versthen
     def a_star(self, start, end):
         G = self.model.maze_to_graph()
         open_list = set([start])
