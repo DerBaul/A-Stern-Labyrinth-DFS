@@ -169,7 +169,7 @@ class MazeAgent(mesa.Agent):
         return [money, self.state]
 
     def step(self):
-        if self.state == 2: #Wenn tot tuh nichts
+        if self.state == 2: #Wenn tot mach nichts
             pass
         elif self.state == 0: 
             if not self.best_way: #gibt es noch keinen optimalen weg, such einen
